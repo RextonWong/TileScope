@@ -2,11 +2,11 @@
 
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
-import { Suspense, useMemo, useRef, useEffect } from "react";
+import { Suspense, useMemo, useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import type { TileDimensions, TileSurfaceId, EditableDefect } from "@/lib/tile";
 import { getTileSurfaceSize } from "@/lib/tile";
-import { renderDefectThumbnailCanvas } from "@/lib/renderTile";
+import { renderTileSurfaceCanvas } from "@/lib/renderTile";
 
 const MM_TO_WORLD = 0.01;
 
@@ -94,21 +94,7 @@ function severityColor(severity: EditableDefect["severity"]): string {
   }
 }
 
-// ── Per-defect-type canvas texture ───────────────────────────────────────────
-
-const textureCache = new Map<string, THREE.CanvasTexture>();
-
-function getDefectTexture(defectType: string): THREE.CanvasTexture | null {
-  if (textureCache.has(defectType)) return textureCache.get(defectType)!;
-  const canvas = renderDefectThumbnailCanvas(defectType, 96);
-  if (!canvas) return null;
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  textureCache.set(defectType, tex);
-  return tex;
-}
-
-// ── Defect marker — shows actual defect texture ───────────────────────────────
+// ── Defect marker — ring indicator only (defect effect shown on surface) ──────
 
 interface DefectMarkerProps {
   x: number;
@@ -125,50 +111,33 @@ interface DefectMarkerProps {
 function DefectMarker({ x, y, defect, selected, onSelect, onDragStart, onDragMove, onEndDrag, clippingPlanes }: DefectMarkerProps) {
   const color = severityColor(defect.severity);
   const scale = defect.size ?? 1.0;
-  const r = 0.038 * scale;
-  const rotZ = ((defect.rotation ?? 0) * Math.PI) / 180;
-
-  const texture = useMemo(() => getDefectTexture(defect.type), [defect.type]);
+  const r = 0.022 * scale;
 
   return (
     <group
-      position={[x, y, 0.004]}
-      rotation={[0, 0, rotZ]}
+      position={[x, y, 0.006]}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
       onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(); }}
       onPointerMove={(e) => { if (onDragMove) { e.stopPropagation(); onDragMove(e.point); } }}
       onPointerUp={() => onEndDrag?.()}
     >
-      {/* Defect texture preview */}
-      {texture && (
-        <mesh position={[0, 0, 0.001]}>
-          <planeGeometry args={[r * 2, r * 2]} />
-          <meshBasicMaterial
-            map={texture}
-            transparent
-            side={THREE.DoubleSide}
-            clippingPlanes={clippingPlanes}
-          />
-        </mesh>
-      )}
-
       {/* Severity colour ring */}
-      <mesh position={[0, 0, 0]}>
-        <ringGeometry args={[r * 0.95, r * 1.35, 24]} />
+      <mesh>
+        <ringGeometry args={[r * 0.7, r * 1.0, 24]} />
         <meshBasicMaterial color={color} side={THREE.DoubleSide} clippingPlanes={clippingPlanes} />
       </mesh>
 
-      {/* White outer ring for contrast against tile body */}
+      {/* White outer ring for contrast */}
       <mesh position={[0, 0, -0.001]}>
-        <ringGeometry args={[r * 1.35, r * 1.55, 24]} />
+        <ringGeometry args={[r * 1.0, r * 1.25, 24]} />
         <meshBasicMaterial color="white" transparent opacity={0.55} side={THREE.DoubleSide} clippingPlanes={clippingPlanes} />
       </mesh>
 
       {/* Selection highlight */}
       {selected && (
         <mesh position={[0, 0, 0.002]}>
-          <ringGeometry args={[r * 1.55, r * 2.1, 28]} />
-          <meshBasicMaterial color={color} transparent opacity={0.8} clippingPlanes={clippingPlanes} />
+          <ringGeometry args={[r * 1.25, r * 1.8, 28]} />
+          <meshBasicMaterial color={color} transparent opacity={0.85} clippingPlanes={clippingPlanes} />
         </mesh>
       )}
     </group>
@@ -190,11 +159,12 @@ interface FacePlaneProps {
   onStartDrag: (id: string, surface: TileSurfaceId) => void;
   onMoveDefect?: (id: string, x: number, y: number) => void;
   onEndDrag: () => void;
+  texture?: THREE.CanvasTexture | null;
 }
 
 function FacePlane({
   face, defects, selectedDefectId, onAddDefect, onSelectDefect,
-  clippingPlanes, dragRef, didDragRef, onStartDrag, onMoveDefect, onEndDrag,
+  clippingPlanes, dragRef, didDragRef, onStartDrag, onMoveDefect, onEndDrag, texture,
 }: FacePlaneProps) {
   const myDefects = defects.filter((d) => {
     const zoneMap: Record<string, TileSurfaceId> = {
@@ -231,6 +201,18 @@ function FacePlane({
 
   return (
     <group position={face.position} rotation={face.rotation as [number, number, number]}>
+      {/* Textured surface overlay (edge faces only — face overlay handled separately) */}
+      {texture && (
+        <mesh position={[0, 0, 0.0005]}>
+          <planeGeometry args={[face.width, face.height]} />
+          <meshStandardMaterial
+            map={texture}
+            roughness={0.85}
+            clippingPlanes={clippingPlanes}
+          />
+        </mesh>
+      )}
+
       {/* Invisible clickable plane */}
       <mesh
         ref={planeMeshRef}
@@ -335,6 +317,30 @@ export function Tile3D(props: Tile3DProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Live surface textures (debounced) ────────────────────────────────────────
+  const [textures, setTextures] = useState<Map<TileSurfaceId, THREE.CanvasTexture>>(new Map());
+  const prevTexturesRef = useRef<Map<TileSurfaceId, THREE.CanvasTexture>>(new Map());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const allSurfaces: TileSurfaceId[] = ["face", "top_edge", "bottom_edge", "left_edge", "right_edge"];
+      const newMap = new Map<TileSurfaceId, THREE.CanvasTexture>();
+      for (const surface of allSurfaces) {
+        const maxPx = surface === "face" ? 512 : 128;
+        const canvas = renderTileSurfaceCanvas(surface, props.dimensions, props.defects, maxPx);
+        if (canvas) {
+          newMap.set(surface, new THREE.CanvasTexture(canvas));
+        }
+      }
+      prevTexturesRef.current.forEach((t) => t.dispose());
+      prevTexturesRef.current = newMap;
+      setTextures(new Map(newMap));
+    }, 150);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [props.dimensions, props.defects]);
+
   const clippingPlanes = useMemo(() => {
     const E = 0.015;
     return [
@@ -366,10 +372,14 @@ export function Tile3D(props: Tile3DProps) {
             <meshStandardMaterial color="#c4a07a" roughness={0.9} />
           </mesh>
 
-          {/* Glazed face overlay */}
+          {/* Glazed face overlay — live canvas texture */}
           <mesh position={[0, 0, T / 2 + 0.0001]}>
             <planeGeometry args={[L, W]} />
-            <meshStandardMaterial color={faceColor} roughness={0.15} metalness={0.05} />
+            {textures.get("face") ? (
+              <meshStandardMaterial map={textures.get("face")} roughness={0.15} metalness={0.05} />
+            ) : (
+              <meshStandardMaterial color={faceColor} roughness={0.15} metalness={0.05} />
+            )}
           </mesh>
 
           {faces.map((face) => (
@@ -387,6 +397,7 @@ export function Tile3D(props: Tile3DProps) {
               onStartDrag={startDrag}
               onMoveDefect={props.onMoveDefect}
               onEndDrag={endDrag}
+              texture={face.id !== "face" ? (textures.get(face.id) ?? null) : null}
             />
           ))}
 
