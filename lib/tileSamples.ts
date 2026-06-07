@@ -169,7 +169,7 @@ export const TILE_SAMPLE_PRESETS: TileSamplePreset[] = [
       "insufficient edge firing support.",
     dimensions: STD,
     defects: [
-      { id: "s-re-1", zone: "top_edge", type: "rough_edge", x: 0.5, y: 0.5, severity: "minor" },
+      { id: "s-re-1", zone: "face", type: "rough_edge", x: 0.5, y: 0.03, severity: "minor" },
     ],
   },
 
