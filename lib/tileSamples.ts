@@ -127,21 +127,6 @@ export const TILE_SAMPLE_PRESETS: TileSamplePreset[] = [
   },
 
   {
-    id: "fish_scale",
-    defectTypeId: "fish_scale",
-    label: "Fish Scale",
-    shortLabel: "Fish Scale",
-    description:
-      "Curved glaze flakes that partially lift from the tile body, resembling fish scales. " +
-      "A severe defect caused by high compressive stress in the glaze. Creates sharp edges " +
-      "and is a safety and hygiene hazard. Disqualifies Grade A.",
-    dimensions: STD,
-    defects: [
-      { id: "s-fish-1", zone: "face", type: "fish_scale", x: 0.45, y: 0.45, severity: "critical" },
-    ],
-  },
-
-  {
     id: "scratch",
     defectTypeId: "scratch",
     label: "Scratch",
@@ -184,37 +169,7 @@ export const TILE_SAMPLE_PRESETS: TileSamplePreset[] = [
       "insufficient edge firing support.",
     dimensions: STD,
     defects: [
-      { id: "s-re-1", zone: "top_edge", type: "rough_edge", x: 0.5, y: 0.1, severity: "minor" },
-    ],
-  },
-
-  {
-    id: "warping",
-    defectTypeId: "warping",
-    label: "Warping",
-    shortLabel: "Warping",
-    description:
-      "A non-planar tile body exhibiting bow or twist. Quantified as the maximum deviation " +
-      "from a reference plane as a percentage of the tile's diagonal. Exceeding 0.5% triggers " +
-      "Grade C assignment. Causes lippage and installation failure.",
-    dimensions: STD,
-    defects: [
-      { id: "s-warp-1", zone: "face", type: "warping", x: 0.5, y: 0.5, severity: "major" },
-    ],
-  },
-
-  {
-    id: "lippage",
-    defectTypeId: "lippage",
-    label: "Lippage",
-    shortLabel: "Lippage",
-    description:
-      "A height step between adjacent tiles visible across the installation. Caused by " +
-      "warped tiles, incorrect adhesive bed thickness, or mixed tile batches with dimensional " +
-      "variation. A trip hazard in floor applications.",
-    dimensions: STD,
-    defects: [
-      { id: "s-lip-1", zone: "face", type: "lippage", x: 0.5, y: 0.42, severity: "major" },
+      { id: "s-re-1", zone: "top_edge", type: "rough_edge", x: 0.5, y: 0.5, severity: "minor" },
     ],
   },
 
@@ -247,21 +202,6 @@ export const TILE_SAMPLE_PRESETS: TileSamplePreset[] = [
     dimensions: STD,
     defects: [
       { id: "s-pm-1", zone: "face", type: "print_misalignment", x: 0.5, y: 0.5, severity: "major" },
-    ],
-  },
-
-  {
-    id: "glaze_mark",
-    defectTypeId: "glaze_mark",
-    label: "Glaze Mark",
-    shortLabel: "Glaze Mark",
-    description:
-      "A smear, streak, or uneven glaze application band on the tile surface. Usually " +
-      "caused by glaze application equipment variation, contamination of the spray nozzle, " +
-      "or tile surface irregularity at the glaze line.",
-    dimensions: STD,
-    defects: [
-      { id: "s-gm-1", zone: "face", type: "glaze_mark", x: 0.5, y: 0.4, severity: "minor" },
     ],
   },
 

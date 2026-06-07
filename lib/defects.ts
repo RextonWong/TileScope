@@ -77,15 +77,6 @@ export const DEFECT_TYPES: DefectTypeInfo[] = [
     severity_indicator: "medium",
   },
   {
-    id: "fish_scale",
-    name: "Fish Scale",
-    category: "surface",
-    description: "Curved flakes of glaze lifting or detaching in a scale-like pattern.",
-    cause: "Compressive stresses from glaze expansion exceeding body expansion (peeling/shivering).",
-    detection: "AI detects curved edge boundaries and shadow patterns indicating lifted glaze sections.",
-    severity_indicator: "high",
-  },
-  {
     id: "scratch",
     name: "Scratch",
     category: "surface",
@@ -113,24 +104,6 @@ export const DEFECT_TYPES: DefectTypeInfo[] = [
     detection: "AI identifies irregular edge profiles deviating from expected straight boundaries.",
     severity_indicator: "low",
   },
-  {
-    id: "warping",
-    name: "Warping",
-    category: "edge_dimensional",
-    description: "Non-planar tile body — bow (curvature across width) or twist (diagonal distortion).",
-    cause: "Non-uniform drying or firing temperature gradients through the tile body.",
-    detection: "AI detects shadow/highlight gradients indicating surface non-planarity per ISO 10545-2.",
-    severity_indicator: "high",
-  },
-  {
-    id: "lippage",
-    name: "Lippage",
-    category: "edge_dimensional",
-    description: "Height difference between adjacent tiles visible at grout joints.",
-    cause: "Warped tiles, uneven substrate, or inadequate trowel technique during installation.",
-    detection: "AI identifies step discontinuities at tile edges when multiple tiles are in frame.",
-    severity_indicator: "medium",
-  },
   // ── Color & Pattern Defects ────────────────────────────────────────────────
   {
     id: "color_inconsistency",
@@ -149,15 +122,6 @@ export const DEFECT_TYPES: DefectTypeInfo[] = [
     cause: "Inkjet head misalignment, substrate positioning error, or conveyor speed variation.",
     detection: "AI detects double-edge artefacts or ghost outlines indicating layer offset.",
     severity_indicator: "medium",
-  },
-  {
-    id: "glaze_mark",
-    name: "Glaze Mark",
-    category: "color_pattern",
-    description: "Smear, streak, or area of uneven glaze application.",
-    cause: "Glaze curtain drips, spray nozzle blockage, or belt transfer contamination.",
-    detection: "AI identifies bands or streaks of altered glaze thickness / reflectivity.",
-    severity_indicator: "low",
   },
 ];
 

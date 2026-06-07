@@ -199,8 +199,10 @@ function FacePlane({
   const myDefects = defects.filter((d) => {
     const zoneMap: Record<string, TileSurfaceId> = {
       face: "face",
-      top_edge: "top_edge", top_left_corner: "top_edge", top_right_corner: "top_edge",
-      bottom_edge: "bottom_edge", bottom_left_corner: "bottom_edge", bottom_right_corner: "bottom_edge",
+      top_left_corner: "face", top_right_corner: "face",
+      bottom_left_corner: "face", bottom_right_corner: "face",
+      top_edge: "top_edge",
+      bottom_edge: "bottom_edge",
       left_edge: "left_edge",
       right_edge: "right_edge",
     };

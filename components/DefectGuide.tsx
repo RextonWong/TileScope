@@ -10,7 +10,7 @@ import {
   type DefectCategory,
   type DefectTypeInfo,
 } from "@/lib/defects";
-import { renderDefectExample } from "@/lib/renderTile";
+import { renderDefectViews, type DefectView } from "@/lib/renderTile";
 
 // ── Tile SVG helpers ───────────────────────────────────────────────────────────
 
@@ -80,13 +80,6 @@ const DEFECT_SHAPES: Record<string, React.ReactNode> = {
       <ellipse cx={60} cy={58} rx={28} ry={22} fill="white" opacity={0.18} stroke="#9ca3af" strokeWidth={0.6} strokeDasharray="4 2" />
     </TileFace>
   ),
-  fish_scale: (
-    <TileFace>
-      {[0,1,2,3].map((i) => (
-        <path key={i} d={`M ${38+i*10} ${50+i*6} Q ${44+i*10} ${44+i*6} ${50+i*10} ${50+i*6}`} stroke="#374151" strokeWidth={1.2} fill="#d4d8e0" opacity={0.85} />
-      ))}
-    </TileFace>
-  ),
   scratch: (
     <TileFace>
       <line x1={30} y1={40} x2={85} y2={78} stroke="#4b5563" strokeWidth={1.2} strokeLinecap="round" />
@@ -103,20 +96,6 @@ const DEFECT_SHAPES: Record<string, React.ReactNode> = {
       <polyline points="3,3 10,8 18,4 26,9 34,5 42,10 50,5 58,9 66,4 74,8 82,4 90,9 98,5 106,9 114,4 117,3" stroke={TILE_EDGE} strokeWidth={2} fill={TILE_BG} />
     </TileFace>
   ),
-  warping: (
-    <TileFace>
-      <path d="M 3 80 Q 60 40 117 80" stroke="#4b5563" strokeWidth={1.5} fill="none" strokeDasharray="5 3" />
-      <text x={60} y={72} textAnchor="middle" fontSize="7" fill="#4b5563">bow</text>
-    </TileFace>
-  ),
-  lippage: (
-    <TileFace>
-      <rect x={3} y={50} width={55} height={67} fill={TILE_BG} stroke={TILE_EDGE} strokeWidth={0.8} />
-      <rect x={62} y={58} width={55} height={59} fill={TILE_BG} stroke={TILE_EDGE} strokeWidth={0.8} />
-      <line x1={60} y1={50} x2={60} y2={58} stroke="#ef4444" strokeWidth={1.5} />
-      <line x1={56} y1={54} x2={64} y2={54} stroke="#ef4444" strokeWidth={1} />
-    </TileFace>
-  ),
   color_inconsistency: (
     <TileFace>
       <rect x={3} y={3} width={57} height={114} fill="#c8cdd8" opacity={0.6} />
@@ -128,11 +107,6 @@ const DEFECT_SHAPES: Record<string, React.ReactNode> = {
     <TileFace>
       <rect x={25} y={30} width={70} height={60} fill="none" stroke="#374151" strokeWidth={1} strokeDasharray="4 2" />
       <rect x={30} y={35} width={70} height={60} fill="none" stroke="#0ea5e9" strokeWidth={1} opacity={0.7} />
-    </TileFace>
-  ),
-  glaze_mark: (
-    <TileFace>
-      <path d="M 20 30 Q 60 50 100 40" stroke="#9ca3af" strokeWidth={8} fill="none" opacity={0.4} strokeLinecap="round" />
     </TileFace>
   ),
 };
@@ -170,16 +144,16 @@ function DefectCard({ defect, selected, onClick }: { defect: DefectTypeInfo; sel
 // ── Rendered example image ─────────────────────────────────────────────────────
 
 function RenderedExample({ defectId }: { defectId: string }) {
-  const [imgBase64, setImgBase64] = useState<string | null>(null);
+  const [views, setViews] = useState<DefectView[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   const generate = async () => {
     setLoading(true);
     try {
-      const result = await renderDefectExample(defectId);
-      setImgBase64(result.base64);
+      const result = await renderDefectViews(defectId);
+      setViews(result);
     } catch {
-      setImgBase64(null);
+      setViews(null);
     } finally {
       setLoading(false);
     }
@@ -192,15 +166,15 @@ function RenderedExample({ defectId }: { defectId: string }) {
 
   if (loading) {
     return (
-      <div className="w-full aspect-square border border-neutral-800 bg-neutral-900 flex items-center justify-center">
+      <div className="w-full h-24 border border-neutral-800 bg-neutral-900 flex items-center justify-center">
         <span className="text-xs text-neutral-600 animate-pulse">Rendering…</span>
       </div>
     );
   }
 
-  if (!imgBase64) {
+  if (!views) {
     return (
-      <div className="w-full aspect-square border border-neutral-800 bg-neutral-900 flex flex-col items-center justify-center gap-2">
+      <div className="w-full h-24 border border-neutral-800 bg-neutral-900 flex flex-col items-center justify-center gap-2">
         <span className="text-xs text-neutral-600">Render failed</span>
         <button type="button" onClick={generate} className="text-xs text-sky-400 hover:text-sky-300">Retry</button>
       </div>
@@ -208,17 +182,32 @@ function RenderedExample({ defectId }: { defectId: string }) {
   }
 
   return (
-    <div className="relative w-full aspect-square border border-neutral-800 overflow-hidden">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`data:image/jpeg;base64,${imgBase64}`} alt={`${defectId} rendered example`} className="w-full h-full object-cover" />
-      <button
-        type="button"
-        onClick={generate}
-        className="absolute top-2 right-2 p-1.5 rounded-lg bg-neutral-950/70 text-neutral-400 hover:text-neutral-200 transition-colors"
-        title="Regenerate"
-      >
-        <RefreshCw size={12} />
-      </button>
+    <div className="flex flex-col gap-2">
+      {views.map((v, i) => (
+        <div key={i} className="flex flex-col gap-1">
+          {v.label && (
+            <span className="text-[10px] uppercase tracking-widest text-neutral-600 font-medium">{v.label}</span>
+          )}
+          <div className="relative w-full border border-neutral-800 overflow-hidden rounded">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`data:image/jpeg;base64,${v.surface.base64}`}
+              alt={`${defectId} ${v.label || "example"}`}
+              className="w-full h-auto block"
+            />
+            {i === 0 && (
+              <button
+                type="button"
+                onClick={generate}
+                className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-neutral-950/70 text-neutral-400 hover:text-neutral-200 transition-colors"
+                title="Regenerate"
+              >
+                <RefreshCw size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

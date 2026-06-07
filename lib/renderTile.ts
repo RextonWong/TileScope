@@ -861,6 +861,140 @@ function makeCanvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
+export interface DefectView {
+  label: string;
+  surface: RenderedTileSurface;
+}
+
+export async function renderDefectViews(defectType: string): Promise<DefectView[]> {
+  if (typeof document === "undefined") {
+    return [{ label: "", surface: { base64: "", mime: "image/jpeg", widthPx: 0, heightPx: 0 } }];
+  }
+
+  const seed = hashString(`example-${defectType}`);
+
+  if (defectType === "chip") {
+    const wPx = 440;
+
+    // Face view
+    const faceH = 320;
+    const faceCanvas = makeCanvas(wPx, faceH);
+    const faceCtx = faceCanvas.getContext("2d")!;
+    paintGlazedFace(faceCtx, wPx, faceH, seed);
+    paintDefect(faceCtx, {
+      id: "chip-ex", zone: "top_left_corner", type: "chip", x: 0.08, y: 0.08, severity: "major",
+    }, "face", wPx, faceH);
+    const faceB64 = faceCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+
+    // Edge view
+    const edgeH = 90;
+    const edgeCanvas = makeCanvas(wPx, edgeH);
+    const edgeCtx = edgeCanvas.getContext("2d")!;
+    paintFiredEdge(edgeCtx, wPx, edgeH, seed);
+    paintDefect(edgeCtx, {
+      id: "chip-ex-edge", zone: "top_left_corner", type: "chip", x: 0.08, y: 0.5, severity: "major",
+    }, "top_edge", wPx, edgeH);
+    const edgeB64 = edgeCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+
+    return [
+      { label: "Front face", surface: { base64: faceB64, mime: "image/jpeg", widthPx: wPx, heightPx: faceH } },
+      { label: "Top edge", surface: { base64: edgeB64, mime: "image/jpeg", widthPx: wPx, heightPx: edgeH } },
+    ];
+  }
+
+  if (defectType === "rough_edge") {
+    const wPx = 480;
+    const rng = mulberry32(seed * 31);
+    const steps = 26;
+
+    const faceH = 200;
+    const edgeH = 110;
+    const faceNotchDepth = faceH * 0.09;
+    const edgeNotchDepth = edgeH * 0.38;
+    const pts: { faceY: number; edgeY: number }[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const hasNotch = rng() < 0.38;
+      const t = rng();
+      pts.push({
+        faceY: hasNotch ? faceNotchDepth * (0.45 + t * 0.55) : faceNotchDepth * t * 0.10,
+        edgeY: hasNotch ? edgeNotchDepth * (0.45 + t * 0.55) : edgeNotchDepth * t * 0.10,
+      });
+    }
+
+    // Face view
+    const faceCanvas = makeCanvas(wPx, faceH);
+    const faceCtx = faceCanvas.getContext("2d")!;
+    paintGlazedFace(faceCtx, wPx, faceH, seed);
+    faceCtx.fillStyle = "rgba(18, 10, 5, 0.90)";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
+    faceCtx.lineTo(wPx, 0);
+    faceCtx.closePath();
+    faceCtx.fill();
+    faceCtx.fillStyle = "rgba(155, 110, 65, 0.62)";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].faceY - faceNotchDepth * 0.28));
+    faceCtx.lineTo(wPx, 0);
+    faceCtx.closePath();
+    faceCtx.fill();
+    faceCtx.strokeStyle = "rgba(215, 188, 152, 0.72)";
+    faceCtx.lineWidth = Math.max(1.5, wPx / 240);
+    faceCtx.lineJoin = "round";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, pts[0].faceY);
+    for (let i = 1; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
+    faceCtx.stroke();
+    const faceB64 = faceCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+
+    // Edge view
+    const edgeCanvas = makeCanvas(wPx, edgeH);
+    const edgeCtx = edgeCanvas.getContext("2d")!;
+    paintFiredEdge(edgeCtx, wPx, edgeH, seed);
+    edgeCtx.fillStyle = "rgba(14, 8, 3, 0.92)";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    edgeCtx.lineTo(wPx, 0);
+    edgeCtx.closePath();
+    edgeCtx.fill();
+    edgeCtx.fillStyle = "rgba(148, 105, 60, 0.65)";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].edgeY - edgeNotchDepth * 0.28));
+    edgeCtx.lineTo(wPx, 0);
+    edgeCtx.closePath();
+    edgeCtx.fill();
+    edgeCtx.strokeStyle = "rgba(215, 185, 148, 0.75)";
+    edgeCtx.lineWidth = Math.max(1.5, wPx / 240);
+    edgeCtx.lineJoin = "round";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, pts[0].edgeY);
+    for (let i = 1; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    edgeCtx.stroke();
+    const edgeB64 = edgeCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+
+    return [
+      { label: "Front face", surface: { base64: faceB64, mime: "image/jpeg", widthPx: wPx, heightPx: faceH } },
+      { label: "Top edge", surface: { base64: edgeB64, mime: "image/jpeg", widthPx: wPx, heightPx: edgeH } },
+    ];
+  }
+
+  // All other defects — single face view
+  const fakeDims: TileDimensions = { width_mm: 300, height_mm: 300, thickness_mm: 10 };
+  const fakeDefect: EditableDefect = {
+    id: `example-${defectType}`,
+    zone: "face",
+    type: defectType,
+    x: 0.5,
+    y: 0.5,
+    severity: "major",
+  };
+  const single = await renderTileSurface("face", fakeDims, [fakeDefect]);
+  return [{ label: "", surface: single }];
+}
+
 export async function renderDefectExample(defectType: string): Promise<RenderedTileSurface> {
   if (typeof document === "undefined") {
     return { base64: "", mime: "image/jpeg", widthPx: 0, heightPx: 0 };
