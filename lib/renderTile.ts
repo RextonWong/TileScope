@@ -766,44 +766,6 @@ export interface RenderedTileSurface {
   heightPx: number;
 }
 
-function paintSurface(
-  ctx: CanvasRenderingContext2D,
-  surface: TileSurfaceId,
-  dims: TileDimensions,
-  defects: EditableDefect[],
-  wPx: number,
-  hPx: number
-) {
-  const baseSeed = hashString(`${surface}-${dims.width_mm}-${dims.height_mm}`);
-  if (surface === "face") {
-    paintGlazedFace(ctx, wPx, hPx, baseSeed, dims.color);
-  } else {
-    paintFiredEdge(ctx, wPx, hPx, baseSeed);
-  }
-
-  const relevant = defects.filter((d) => {
-    if (surface === "face") {
-      return (
-        d.zone === "face" ||
-        d.zone.includes("corner") ||
-        d.type === "color_inconsistency" || d.type === "print_misalignment" ||
-        d.type === "crazing"
-      );
-    }
-    const zoneToSurface: Record<string, TileSurfaceId> = {
-      top_edge: "top_edge", bottom_edge: "bottom_edge",
-      left_edge: "left_edge", right_edge: "right_edge",
-      top_left_corner: "top_edge", top_right_corner: "top_edge",
-      bottom_left_corner: "bottom_edge", bottom_right_corner: "bottom_edge",
-    };
-    return zoneToSurface[d.zone] === surface;
-  });
-
-  for (const defect of relevant) {
-    paintDefect(ctx, defect, surface, wPx, hPx);
-  }
-}
-
 export async function renderTileSurface(
   surface: TileSurfaceId,
   dims: TileDimensions,
@@ -822,32 +784,41 @@ export async function renderTileSurface(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D context unavailable");
 
-  paintSurface(ctx, surface, dims, defects, wPx, hPx);
+  const baseSeed = hashString(`${surface}-${dims.width_mm}-${dims.height_mm}`);
+  if (surface === "face") {
+    paintGlazedFace(ctx, wPx, hPx, baseSeed, dims.color);
+  } else {
+    paintFiredEdge(ctx, wPx, hPx, baseSeed);
+  }
+
+  const relevant = defects.filter((d) => {
+    if (surface === "face") {
+      return (
+        d.zone === "face" ||
+        d.zone.includes("corner") ||
+        (surface === "face" && (d.type === "color_inconsistency" || d.type === "print_misalignment" || d.type === "glaze_mark" || d.type === "crazing" || d.type === "warping" || d.type === "lippage"))
+      );
+    }
+    const zoneToSurface: Record<string, TileSurfaceId> = {
+      top_edge: "top_edge",
+      bottom_edge: "bottom_edge",
+      left_edge: "left_edge",
+      right_edge: "right_edge",
+      top_left_corner: "top_edge",
+      top_right_corner: "top_edge",
+      bottom_left_corner: "bottom_edge",
+      bottom_right_corner: "bottom_edge",
+    };
+    return zoneToSurface[d.zone] === surface;
+  });
+
+  for (const defect of relevant) {
+    paintDefect(ctx, defect, surface, wPx, hPx);
+  }
 
   const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
   const base64 = dataUrl.split(",")[1] ?? "";
   return { base64, mime: "image/jpeg", widthPx: wPx, heightPx: hPx };
-}
-
-export function renderTileSurfaceCanvas(
-  surface: TileSurfaceId,
-  dims: TileDimensions,
-  defects: EditableDefect[],
-  maxPx = 512
-): HTMLCanvasElement | null {
-  if (typeof document === "undefined") return null;
-  const size = getTileSurfaceSize(surface, dims);
-  const { wPx: rawW, hPx: rawH } = pickSize(size.width_mm, size.height_mm);
-  const scale = Math.min(1, maxPx / Math.max(rawW, rawH));
-  const wPx = Math.max(4, Math.round(rawW * scale));
-  const hPx = Math.max(4, Math.round(rawH * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = wPx;
-  canvas.height = hPx;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  paintSurface(ctx, surface, dims, defects, wPx, hPx);
-  return canvas;
 }
 
 export async function renderAllTileSurfaces(
