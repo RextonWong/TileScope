@@ -341,57 +341,57 @@ function drawDevitrification(ctx: CanvasRenderingContext2D, wPx: number, hPx: nu
   ctx.restore();
 }
 
-// Fixed: larger flakes, dramatic shadow, high-contrast lift effect
+// Rewritten: genuine crescent-shaped lifted glaze flakes (actual fish scale appearance)
 function drawFishScale(ctx: CanvasRenderingContext2D, wPx: number, hPx: number, rng: () => number) {
-  ctx.save();
-  const baseX = (0.2 + rng() * 0.2) * wPx;
-  const baseY = (0.25 + rng() * 0.2) * hPx;
-  const scaleCount = 2 + Math.floor(rng() * 3);
+  const clusterX = (0.25 + rng() * 0.50) * wPx;
+  const clusterY = (0.25 + rng() * 0.50) * hPx;
+  const count = 4 + Math.floor(rng() * 4);
+  const baseR = wPx * (0.055 + rng() * 0.04);
 
-  for (let i = 0; i < scaleCount; i++) {
-    const sx = baseX + (rng() - 0.5) * wPx * 0.30;
-    const sy = baseY + (rng() - 0.5) * hPx * 0.25;
-    const sw = wPx * (0.11 + rng() * 0.09);
-    const sh = hPx * (0.10 + rng() * 0.07);
+  for (let i = 0; i < count; i++) {
+    const cx = clusterX + (rng() - 0.5) * wPx * 0.42;
+    const cy = clusterY + (rng() - 0.5) * hPx * 0.42;
+    const r = baseR * (0.55 + rng() * 0.9);
+    const rot = rng() * Math.PI * 2;
 
-    // Deep shadow where glaze peeled from body
-    ctx.fillStyle = "rgba(28, 18, 10, 0.80)";
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+
+    // Exposed pit — dark ellipse showing body where glaze lifted
+    ctx.fillStyle = "rgba(48, 30, 15, 0.90)";
     ctx.beginPath();
-    ctx.moveTo(sx - sw * 0.05, sy + sh * 1.08);
-    ctx.quadraticCurveTo(sx + sw * 0.5 + sw * 0.1, sy - sh * 0.12, sx + sw + sw * 0.05, sy + sh * 1.08);
-    ctx.closePath();
+    ctx.ellipse(0, r * 0.18, r * 0.52, r * 0.42, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Lifted glaze flake — white at curled top, terracotta body at bottom
-    const grad = ctx.createLinearGradient(sx, sy - sh * 0.15, sx, sy + sh);
-    grad.addColorStop(0, "rgba(255, 252, 248, 0.97)");
-    grad.addColorStop(0.4, "rgba(238, 232, 220, 0.92)");
-    grad.addColorStop(0.8, "rgba(205, 172, 135, 0.70)");
-    grad.addColorStop(1, "rgba(175, 142, 105, 0.40)");
+    // The glaze flake — crescent (D-shape): outer semicircle + inner concave arc
+    ctx.beginPath();
+    ctx.arc(0, 0, r, Math.PI, 0, false);            // outer top arc
+    ctx.arc(0, r * 0.3, r * 0.62, 0, Math.PI, true); // inner concave
+    ctx.closePath();
+
+    const grad = ctx.createRadialGradient(-r * 0.2, -r * 0.25, 0, 0, 0, r);
+    grad.addColorStop(0,    "rgba(255, 253, 249, 0.98)");
+    grad.addColorStop(0.45, "rgba(238, 230, 215, 0.92)");
+    grad.addColorStop(0.80, "rgba(205, 175, 140, 0.72)");
+    grad.addColorStop(1,    "rgba(175, 140, 105, 0.40)");
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy + sh);
-    ctx.quadraticCurveTo(sx + sw * 0.5, sy - sh * 0.35, sx + sw, sy + sh);
-    ctx.closePath();
     ctx.fill();
 
-    // Dark outline separating flake from background
-    ctx.strokeStyle = "rgba(55, 40, 28, 0.85)";
-    ctx.lineWidth = Math.max(1.2, sw * 0.055);
-    ctx.beginPath();
-    ctx.moveTo(sx, sy + sh);
-    ctx.quadraticCurveTo(sx + sw * 0.5, sy - sh * 0.35, sx + sw, sy + sh);
+    // Dark fracture outline
+    ctx.strokeStyle = "rgba(48, 32, 18, 0.82)";
+    ctx.lineWidth = Math.max(1, r * 0.06);
     ctx.stroke();
 
-    // Gloss highlight on curled lip
-    ctx.strokeStyle = "rgba(255,255,255,0.60)";
-    ctx.lineWidth = Math.max(0.8, sw * 0.025);
+    // Gloss sheen on the lifted outer lip
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
+    ctx.lineWidth = Math.max(0.6, r * 0.025);
     ctx.beginPath();
-    ctx.moveTo(sx + sw * 0.2, sy + sh * 0.5);
-    ctx.quadraticCurveTo(sx + sw * 0.5, sy - sh * 0.25, sx + sw * 0.8, sy + sh * 0.5);
+    ctx.arc(0, 0, r * 0.88, Math.PI * 1.1, Math.PI * 1.9);
     ctx.stroke();
+
+    ctx.restore();
   }
-  ctx.restore();
 }
 
 function drawScratch(ctx: CanvasRenderingContext2D, wPx: number, hPx: number, rng: () => number) {
@@ -447,7 +447,8 @@ function drawChip(
     default: bx = 0; by = hPx; break;
   }
 
-  const baseAngle = [Math.PI, Math.PI * 1.5, 0, Math.PI * 0.5][corner];
+  // Arc sweeps from corner into tile body (first quadrant per corner)
+  const baseAngle = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5][corner];
 
   // Terracotta body exposed where glaze+body chipped away
   const pts: [number, number][] = [];
@@ -654,43 +655,44 @@ function drawPrintMisalignment(ctx: CanvasRenderingContext2D, wPx: number, hPx: 
   ctx.restore();
 }
 
-// Fixed: thicker, higher-contrast smear clearly visible on cream background
+// Rewritten: wide soft glaze application band (spray variation / curtain drip)
 function drawGlazeMark(ctx: CanvasRenderingContext2D, wPx: number, hPx: number, rng: () => number) {
   ctx.save();
-  const sx = (0.04 + rng() * 0.12) * wPx;
-  const sy = (0.2 + rng() * 0.35) * hPx;
-  const ex = (0.68 + rng() * 0.28) * wPx;
-  const ey = (0.25 + rng() * 0.50) * hPx;
-  const mx = (sx + ex) * 0.5 + (rng() - 0.5) * wPx * 0.22;
-  const my = (sy + ey) * 0.5 + (rng() - 0.5) * hPx * 0.22;
-  const strokeW = wPx * (0.055 + rng() * 0.045);
+  const yMid = (0.22 + rng() * 0.56) * hPx;
+  const bandH = hPx * (0.10 + rng() * 0.12);
+  const isDark = rng() < 0.55; // true = thick/over-glazed (darker), false = thin/under-glazed (lighter)
+  const blurPx = Math.max(4, Math.round(bandH * 0.30));
 
-  // Main mark: alternate between over-glaze (dark smear) and under-glaze (glossy lighter)
-  const isDark = rng() < 0.55;
-  ctx.strokeStyle = isDark
-    ? `rgba(108, 98, 82, 0.82)`   // over-glazed darker streak
-    : `rgba(248, 246, 242, 0.95)`; // lighter/glossy streak
-  ctx.lineWidth = strokeW;
+  // Soft-edged glaze band — blur gives realistic spray boundary
+  ctx.filter = `blur(${blurPx}px)`;
+
+  const grad = ctx.createLinearGradient(0, yMid - bandH, 0, yMid + bandH);
+  if (isDark) {
+    grad.addColorStop(0,    "rgba(88, 80, 66, 0)");
+    grad.addColorStop(0.28, "rgba(88, 80, 66, 0.78)");
+    grad.addColorStop(0.72, "rgba(88, 80, 66, 0.78)");
+    grad.addColorStop(1,    "rgba(88, 80, 66, 0)");
+  } else {
+    grad.addColorStop(0,    "rgba(255, 253, 246, 0)");
+    grad.addColorStop(0.28, "rgba(255, 253, 246, 0.82)");
+    grad.addColorStop(0.72, "rgba(255, 253, 246, 0.82)");
+    grad.addColorStop(1,    "rgba(255, 253, 246, 0)");
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, yMid - bandH, wPx, bandH * 2);
+
+  // Unblurred gloss-sheen edge line — subtle but sharp reflectivity change
+  ctx.filter = "none";
+  const steps = 22 + Math.floor(rng() * 10);
+  ctx.strokeStyle = isDark ? "rgba(62, 55, 44, 0.40)" : "rgba(255, 255, 255, 0.52)";
+  ctx.lineWidth = Math.max(1, wPx / 220);
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.quadraticCurveTo(mx, my, ex, ey);
-  ctx.stroke();
-
-  // Hard gloss highlight edge
-  ctx.strokeStyle = "rgba(255,255,255,0.55)";
-  ctx.lineWidth = strokeW * 0.20;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy - strokeW * 0.28);
-  ctx.quadraticCurveTo(mx, my - strokeW * 0.28, ex, ey - strokeW * 0.28);
-  ctx.stroke();
-
-  // Shadow edge on other side
-  ctx.strokeStyle = "rgba(70, 62, 50, 0.35)";
-  ctx.lineWidth = strokeW * 0.18;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy + strokeW * 0.28);
-  ctx.quadraticCurveTo(mx, my + strokeW * 0.28, ex, ey + strokeW * 0.28);
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * wPx;
+    const y = yMid - bandH * 0.45 + (rng() - 0.5) * bandH * 0.28;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
   ctx.stroke();
   ctx.restore();
 }
@@ -853,30 +855,168 @@ export function renderDefectThumbnailCanvas(defectType: string, size = 80): HTML
 
 // ── Single-defect example render for DefectGuide ─────────────────────────────
 
+function makeCanvas(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
 export async function renderDefectExample(defectType: string): Promise<RenderedTileSurface> {
+  if (typeof document === "undefined") {
+    return { base64: "", mime: "image/jpeg", widthPx: 0, heightPx: 0 };
+  }
+
+  const seed = hashString(`example-${defectType}`);
+
+  // ── Chip: composite face corner + edge cross-section ──────────────────────
+  if (defectType === "chip") {
+    const wPx = 440;
+    const faceH = 340;
+    const edgeH = 100;
+    const divH = 2;
+
+    const faceCanvas = makeCanvas(wPx, faceH);
+    const faceCtx = faceCanvas.getContext("2d")!;
+    paintGlazedFace(faceCtx, wPx, faceH, seed);
+    paintDefect(faceCtx, {
+      id: "chip-ex", zone: "top_left_corner", type: "chip", x: 0.08, y: 0.08, severity: "major",
+    }, "face", wPx, faceH);
+
+    // Small label on face
+    faceCtx.fillStyle = "rgba(180,165,145,0.80)";
+    faceCtx.font = `bold ${Math.round(wPx * 0.028)}px monospace`;
+    faceCtx.fillText("FACE (front view)", Math.round(wPx * 0.03), faceH - Math.round(faceH * 0.04));
+
+    const edgeCanvas = makeCanvas(wPx, edgeH);
+    const edgeCtx = edgeCanvas.getContext("2d")!;
+    paintFiredEdge(edgeCtx, wPx, edgeH, seed);
+    paintDefect(edgeCtx, {
+      id: "chip-ex-edge", zone: "top_left_corner", type: "chip", x: 0.08, y: 0.5, severity: "major",
+    }, "top_edge", wPx, edgeH);
+
+    edgeCtx.fillStyle = "rgba(200,175,145,0.80)";
+    edgeCtx.font = `bold ${Math.round(wPx * 0.028)}px monospace`;
+    edgeCtx.fillText("TOP EDGE (side view)", Math.round(wPx * 0.03), edgeH - Math.round(edgeH * 0.08));
+
+    const out = makeCanvas(wPx, faceH + divH + edgeH);
+    const ctx = out.getContext("2d")!;
+    ctx.drawImage(faceCanvas, 0, 0);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, faceH, wPx, divH);
+    ctx.drawImage(edgeCanvas, 0, faceH + divH);
+
+    const b64 = out.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+    return { base64: b64, mime: "image/jpeg", widthPx: wPx, heightPx: faceH + divH + edgeH };
+  }
+
+  // ── Rough Edge: composite face top + edge cross-section ──────────────────
+  if (defectType === "rough_edge") {
+    const wPx = 480;
+    const faceH = 200;
+    const edgeH = 120;
+    const divH = 2;
+    const rng = mulberry32(seed * 31);
+
+    // Build shared jagged profile (same rng seed used for both portions)
+    const steps = 26;
+    const faceNotchDepth = faceH * 0.22;
+    const edgeNotchDepth = edgeH * 0.72;
+    const pts: { faceY: number; edgeY: number }[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const hasNotch = rng() < 0.38;
+      const t = rng();
+      pts.push({
+        faceY: hasNotch ? faceNotchDepth * (0.45 + t * 0.55) : faceNotchDepth * t * 0.10,
+        edgeY: hasNotch ? edgeNotchDepth * (0.45 + t * 0.55) : edgeNotchDepth * t * 0.10,
+      });
+    }
+
+    // Face canvas — cream tile, jagged shadow at top edge
+    const faceCanvas = makeCanvas(wPx, faceH);
+    const faceCtx = faceCanvas.getContext("2d")!;
+    paintGlazedFace(faceCtx, wPx, faceH, seed);
+
+    faceCtx.fillStyle = "rgba(18, 10, 5, 0.90)";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
+    faceCtx.lineTo(wPx, 0);
+    faceCtx.closePath();
+    faceCtx.fill();
+
+    faceCtx.fillStyle = "rgba(155, 110, 65, 0.62)";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].faceY - faceNotchDepth * 0.28));
+    faceCtx.lineTo(wPx, 0);
+    faceCtx.closePath();
+    faceCtx.fill();
+
+    faceCtx.strokeStyle = "rgba(215, 188, 152, 0.72)";
+    faceCtx.lineWidth = Math.max(1.5, wPx / 240);
+    faceCtx.lineJoin = "round";
+    faceCtx.beginPath();
+    faceCtx.moveTo(0, pts[0].faceY);
+    for (let i = 1; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
+    faceCtx.stroke();
+
+    faceCtx.fillStyle = "rgba(180,165,145,0.80)";
+    faceCtx.font = `bold ${Math.round(wPx * 0.028)}px monospace`;
+    faceCtx.fillText("FACE (front view)", Math.round(wPx * 0.03), faceH - Math.round(faceH * 0.05));
+
+    // Edge canvas — terracotta body, jagged top profile
+    const edgeCanvas = makeCanvas(wPx, edgeH);
+    const edgeCtx = edgeCanvas.getContext("2d")!;
+    paintFiredEdge(edgeCtx, wPx, edgeH, seed);
+
+    edgeCtx.fillStyle = "rgba(14, 8, 3, 0.92)";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    edgeCtx.lineTo(wPx, 0);
+    edgeCtx.closePath();
+    edgeCtx.fill();
+
+    edgeCtx.fillStyle = "rgba(148, 105, 60, 0.65)";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, 0);
+    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].edgeY - edgeNotchDepth * 0.28));
+    edgeCtx.lineTo(wPx, 0);
+    edgeCtx.closePath();
+    edgeCtx.fill();
+
+    edgeCtx.strokeStyle = "rgba(215, 185, 148, 0.75)";
+    edgeCtx.lineWidth = Math.max(1.5, wPx / 240);
+    edgeCtx.lineJoin = "round";
+    edgeCtx.beginPath();
+    edgeCtx.moveTo(0, pts[0].edgeY);
+    for (let i = 1; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    edgeCtx.stroke();
+
+    edgeCtx.fillStyle = "rgba(200,175,145,0.80)";
+    edgeCtx.font = `bold ${Math.round(wPx * 0.028)}px monospace`;
+    edgeCtx.fillText("TOP EDGE (side view)", Math.round(wPx * 0.03), edgeH - Math.round(edgeH * 0.07));
+
+    const out = makeCanvas(wPx, faceH + divH + edgeH);
+    const ctx = out.getContext("2d")!;
+    ctx.drawImage(faceCanvas, 0, 0);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, faceH, wPx, divH);
+    ctx.drawImage(edgeCanvas, 0, faceH + divH);
+
+    const b64 = out.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
+    return { base64: b64, mime: "image/jpeg", widthPx: wPx, heightPx: faceH + divH + edgeH };
+  }
+
+  // ── All other defects: standard face render ───────────────────────────────
   const fakeDims: TileDimensions = { width_mm: 300, height_mm: 300, thickness_mm: 10 };
-
-  // Position defects realistically per type
-  const configMap: Record<string, { zone: ZoneId; x: number; y: number; surface: TileSurfaceId }> = {
-    chip:       { zone: "top_left_corner", x: 0.08, y: 0.08, surface: "face" },
-    rough_edge: { zone: "top_edge",        x: 0.5,  y: 0.5,  surface: "top_edge" },
-  };
-  const cfg = configMap[defectType] ?? { zone: "face" as ZoneId, x: 0.5, y: 0.5, surface: "face" as TileSurfaceId };
-
   const fakeDefect: EditableDefect = {
     id: `example-${defectType}`,
-    zone: cfg.zone,
+    zone: "face",
     type: defectType,
-    x: cfg.x,
-    y: cfg.y,
+    x: 0.5,
+    y: 0.5,
     severity: "major",
   };
-
-  // rough_edge examples use the edge surface so the jagged profile is clearly visible
-  const edgeDims: TileDimensions = { width_mm: 300, height_mm: 60, thickness_mm: 10 };
-  return renderTileSurface(
-    cfg.surface,
-    cfg.surface === "top_edge" ? edgeDims : fakeDims,
-    [fakeDefect]
-  );
+  return renderTileSurface("face", fakeDims, [fakeDefect]);
 }
