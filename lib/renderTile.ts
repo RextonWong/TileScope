@@ -501,45 +501,54 @@ function drawChip(
 }
 
 // Fixed: jagged dark notches clearly visible against edge body
-function drawRoughEdge(ctx: CanvasRenderingContext2D, wPx: number, hPx: number, rng: () => number) {
+function drawRoughEdge(ctx: CanvasRenderingContext2D, wPx: number, hPx: number, rng: () => number, normX = 0.5) {
   ctx.save();
-  const steps = 22 + Math.floor(rng() * 12);
-  const maxDepth = hPx * 0.55;
 
-  // Build irregular jagged profile
-  const pts: [number, number][] = [[0, 0]];
-  for (let i = 1; i <= steps; i++) {
-    const x = (i / steps) * wPx;
-    const hasNotch = rng() < 0.40;
-    const depth = hasNotch ? maxDepth * (0.45 + rng() * 0.55) : maxDepth * 0.10 * rng();
+  // Draw a localised rough break centered at normX, spanning ~17% of canvas width
+  const spanPx = wPx * 0.17;
+  const cx = normX * wPx;
+  const x0 = Math.max(0, cx - spanPx / 2);
+  const x1 = Math.min(wPx, cx + spanPx / 2);
+
+  const steps = 10 + Math.floor(rng() * 6);
+  const maxDepth = hPx * 0.07;  // shallow notch — 7% of canvas height
+
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = x0 + t * (x1 - x0);
+    const hasNotch = rng() < 0.45;
+    const depth = hasNotch ? maxDepth * (0.5 + rng() * 0.5) : maxDepth * rng() * 0.12;
     pts.push([x, depth]);
   }
-  pts.push([wPx, 0]);
 
-  // Dark fill for broken/chipped region
-  ctx.fillStyle = "rgba(28, 18, 10, 0.82)";
+  // Dark shadow for the broken region
+  ctx.fillStyle = "rgba(28, 18, 10, 0.85)";
   ctx.beginPath();
-  ctx.moveTo(0, 0);
+  ctx.moveTo(x0, 0);
   for (const [x, y] of pts) ctx.lineTo(x, y);
+  ctx.lineTo(x1, 0);
   ctx.closePath();
   ctx.fill();
 
-  // Broken-clay terracotta sub-fill (shows body material)
-  ctx.fillStyle = "rgba(140, 95, 58, 0.60)";
+  // Terracotta clay body sub-fill
+  ctx.fillStyle = "rgba(140, 95, 58, 0.65)";
   ctx.beginPath();
-  ctx.moveTo(0, 0);
-  for (const [x, y] of pts) ctx.lineTo(x, Math.max(0, y - hPx * 0.08));
+  ctx.moveTo(x0, 0);
+  for (const [x, y] of pts) ctx.lineTo(x, Math.max(0, y - maxDepth * 0.3));
+  ctx.lineTo(x1, 0);
   ctx.closePath();
   ctx.fill();
 
-  // Jagged profile stroke — white-ish fracture line
-  ctx.strokeStyle = "rgba(210, 185, 155, 0.65)";
-  ctx.lineWidth = Math.max(1, wPx / 250);
+  // Fracture highlight line
+  ctx.strokeStyle = "rgba(210, 185, 155, 0.70)";
+  ctx.lineWidth = Math.max(1, wPx / 300);
   ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(pts[1][0], pts[1][1]);
-  for (let i = 2; i < pts.length - 1; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   ctx.stroke();
+
   ctx.restore();
 }
 
@@ -735,7 +744,7 @@ function paintDefect(
     case "fish_scale":         drawFishScale(ctx, wPx, hPx, rng); break;
     case "scratch":            drawScratch(ctx, wPx, hPx, rng); break;
     case "chip":               drawChip(ctx, wPx, hPx, rng, defect.x, defect.y); break;
-    case "rough_edge":         drawRoughEdge(ctx, wPx, hPx, rng); break;
+    case "rough_edge":         drawRoughEdge(ctx, wPx, hPx, rng, defect.x); break;
     case "warping":            drawWarping(ctx, wPx, hPx, rng); break;
     case "lippage":            drawLippage(ctx, wPx, hPx, rng); break;
     case "color_inconsistency": drawColorInconsistency(ctx, wPx, hPx, rng); break;
@@ -904,65 +913,47 @@ export async function renderDefectViews(defectType: string): Promise<DefectView[
 
   if (defectType === "rough_edge") {
     const wPx = 480;
-    const rng = mulberry32(seed * 31);
-    const steps = 26;
-
     const faceH = 200;
     const edgeH = 110;
-    const faceNotchDepth = faceH * 0.09;
-    const edgeNotchDepth = edgeH * 0.38;
-    const pts: { faceY: number; edgeY: number }[] = [];
-    for (let i = 0; i <= steps; i++) {
-      const hasNotch = rng() < 0.38;
-      const t = rng();
-      pts.push({
-        faceY: hasNotch ? faceNotchDepth * (0.45 + t * 0.55) : faceNotchDepth * t * 0.10,
-        edgeY: hasNotch ? edgeNotchDepth * (0.45 + t * 0.55) : edgeNotchDepth * t * 0.10,
-      });
-    }
 
-    // Face view
+    // Face view — 3 small localised rough patches at x=0.18, 0.50, 0.82
     const faceCanvas = makeCanvas(wPx, faceH);
     const faceCtx = faceCanvas.getContext("2d")!;
     paintGlazedFace(faceCtx, wPx, faceH, seed);
-    faceCtx.fillStyle = "rgba(18, 10, 5, 0.90)";
-    faceCtx.beginPath();
-    faceCtx.moveTo(0, 0);
-    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
-    faceCtx.lineTo(wPx, 0);
-    faceCtx.closePath();
-    faceCtx.fill();
-    faceCtx.fillStyle = "rgba(155, 110, 65, 0.62)";
-    faceCtx.beginPath();
-    faceCtx.moveTo(0, 0);
-    for (let i = 0; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].faceY - faceNotchDepth * 0.28));
-    faceCtx.lineTo(wPx, 0);
-    faceCtx.closePath();
-    faceCtx.fill();
-    faceCtx.strokeStyle = "rgba(215, 188, 152, 0.72)";
-    faceCtx.lineWidth = Math.max(1.5, wPx / 240);
-    faceCtx.lineJoin = "round";
-    faceCtx.beginPath();
-    faceCtx.moveTo(0, pts[0].faceY);
-    for (let i = 1; i <= steps; i++) faceCtx.lineTo((i / steps) * wPx, pts[i].faceY);
-    faceCtx.stroke();
+    for (const [normX, id] of [[0.18, "re-ex-1"], [0.50, "re-ex-2"], [0.82, "re-ex-3"]] as [number, string][]) {
+      paintDefect(faceCtx, {
+        id, zone: "face", type: "rough_edge", x: normX, y: 0.03, severity: "minor",
+      }, "face", wPx, faceH);
+    }
     const faceB64 = faceCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
 
-    // Edge view
+    // Edge view — full jagged profile cross-section
+    const rng = mulberry32(seed * 31);
+    const steps = 26;
+    const edgeNotchDepth = edgeH * 0.38;
+    const edgePts: [number, number][] = [];
+    for (let i = 0; i <= steps; i++) {
+      const hasNotch = rng() < 0.38;
+      const t = rng();
+      edgePts.push([
+        (i / steps) * wPx,
+        hasNotch ? edgeNotchDepth * (0.45 + t * 0.55) : edgeNotchDepth * t * 0.10,
+      ]);
+    }
     const edgeCanvas = makeCanvas(wPx, edgeH);
     const edgeCtx = edgeCanvas.getContext("2d")!;
     paintFiredEdge(edgeCtx, wPx, edgeH, seed);
     edgeCtx.fillStyle = "rgba(14, 8, 3, 0.92)";
     edgeCtx.beginPath();
     edgeCtx.moveTo(0, 0);
-    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    for (const [x, y] of edgePts) edgeCtx.lineTo(x, y);
     edgeCtx.lineTo(wPx, 0);
     edgeCtx.closePath();
     edgeCtx.fill();
     edgeCtx.fillStyle = "rgba(148, 105, 60, 0.65)";
     edgeCtx.beginPath();
     edgeCtx.moveTo(0, 0);
-    for (let i = 0; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, Math.max(0, pts[i].edgeY - edgeNotchDepth * 0.28));
+    for (const [x, y] of edgePts) edgeCtx.lineTo(x, Math.max(0, y - edgeNotchDepth * 0.28));
     edgeCtx.lineTo(wPx, 0);
     edgeCtx.closePath();
     edgeCtx.fill();
@@ -970,14 +961,14 @@ export async function renderDefectViews(defectType: string): Promise<DefectView[
     edgeCtx.lineWidth = Math.max(1.5, wPx / 240);
     edgeCtx.lineJoin = "round";
     edgeCtx.beginPath();
-    edgeCtx.moveTo(0, pts[0].edgeY);
-    for (let i = 1; i <= steps; i++) edgeCtx.lineTo((i / steps) * wPx, pts[i].edgeY);
+    edgeCtx.moveTo(edgePts[0][0], edgePts[0][1]);
+    for (let i = 1; i < edgePts.length; i++) edgeCtx.lineTo(edgePts[i][0], edgePts[i][1]);
     edgeCtx.stroke();
     const edgeB64 = edgeCanvas.toDataURL("image/jpeg", 0.88).split(",")[1] ?? "";
 
     return [
       { label: "Front face", surface: { base64: faceB64, mime: "image/jpeg", widthPx: wPx, heightPx: faceH } },
-      { label: "Top edge", surface: { base64: edgeB64, mime: "image/jpeg", widthPx: wPx, heightPx: edgeH } },
+      { label: "Top edge (cross-section)", surface: { base64: edgeB64, mime: "image/jpeg", widthPx: wPx, heightPx: edgeH } },
     ];
   }
 
